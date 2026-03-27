@@ -2,49 +2,56 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P36 PORTAL - v6.3 FIXED</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>P36 PORTAL - v6.4 FINAL</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.11.0.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
-        body { font-family: 'Cairo', sans-serif; background: #0b1120; color: white; margin: 0; }
+        body { font-family: 'Cairo', sans-serif; background: #0b1120; color: white; margin: 0; overflow: hidden; }
         .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.08); }
         .input-p36 { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 16px; width: 100%; color: white; outline: none; }
         #video-container { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; }
+        .btn-call { background: linear-gradient(135deg, #0ea5e9, #0284c7); box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3); }
     </style>
 </head>
 <body>
 
     <div id="auth-section" class="min-h-screen flex items-center justify-center p-6">
-        <div class="w-full max-w-md glass p-10 rounded-[3rem] text-center">
-            <h1 class="text-5xl font-black text-sky-500 mb-8 italic">P36 ID</h1>
+        <div class="w-full max-w-md glass p-10 rounded-[2.5rem] text-center shadow-2xl">
+            <h1 class="text-5xl font-black text-sky-500 mb-8 italic">P36 <span class="text-white">ID</span></h1>
             <div class="space-y-4 text-right">
                 <input type="text" id="reg-name" placeholder="الاسم المستعار" class="input-p36">
                 <input type="email" id="reg-email" placeholder="الإيميل" class="input-p36">
                 <input type="password" id="reg-pass" placeholder="كلمة السر" class="input-p36">
-                <button onclick="handleAuth()" class="w-full bg-sky-600 p-5 rounded-2xl font-black">دخول</button>
+                <button onclick="handleAuth()" class="w-full bg-sky-600 p-5 rounded-2xl font-black text-white shadow-lg active:scale-95 transition-all">دخول النظام</button>
             </div>
         </div>
     </div>
 
     <div id="main-app" class="hidden min-h-screen flex flex-col">
         <header class="p-6 glass flex justify-between items-center sticky top-0 z-50">
-            <h2 id="user-display" class="font-black text-sky-400">...</h2>
-            <button onclick="logout()" class="text-red-500"><i class="fas fa-power-off"></i></button>
+            <div>
+                <h2 id="user-display" class="font-black text-sky-400 text-xl tracking-tight italic">...</h2>
+                <p class="text-[10px] text-green-500 font-bold uppercase italic tracking-widest">Online & Secured</p>
+            </div>
+            <button onclick="logout()" class="w-12 h-12 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/20 flex items-center justify-center"><i class="fas fa-power-off"></i></button>
         </header>
-        <main class="p-6 space-y-4">
-            <input type="text" id="search-input" oninput="searchUsers()" placeholder="ابحث عن أصدقاء..." class="input-p36">
-            <div id="users-list" class="grid gap-4"></div>
+
+        <main class="p-6 space-y-4 flex-1 overflow-y-auto">
+            <input type="text" id="search-input" oninput="searchUsers()" placeholder="ابحث عن أصدقاء متصلين..." class="input-p36 bg-slate-900/50">
+            <div id="users-list" class="grid gap-3"></div>
         </main>
     </div>
 
     <div id="video-container">
-        <div id="remote-player" class="flex-1"></div>
-        <div id="local-player" class="h-1/3 bg-slate-900 border-t border-sky-500/30"></div>
-        <div class="p-10 flex justify-center">
-            <button onclick="endCall()" class="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center"><i class="fas fa-phone-slash text-2xl text-white"></i></button>
+        <div id="remote-player" class="flex-1 bg-black relative">
+             <div class="absolute top-6 left-6 bg-red-500 px-3 py-1 rounded-full text-[10px] font-black animate-pulse">LIVE</div>
+        </div>
+        <div id="local-player" class="h-1/3 bg-slate-900 border-t border-white/10 relative"></div>
+        <div class="absolute bottom-10 left-0 right-0 flex justify-center">
+            <button onclick="endCall()" class="w-20 h-20 bg-red-600 rounded-full shadow-2xl flex items-center justify-center border-4 border-white/10 active:scale-75 transition-transform"><i class="fas fa-phone-slash text-2xl text-white"></i></button>
         </div>
     </div>
 
@@ -66,17 +73,21 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // طلب الإذن فوراً عند تحميل الصفحة لحل مشكلة الصلاحية
-        async function checkPermissions() {
-            try { await navigator.mediaDevices.getUserMedia({video:true, audio:true}); } catch(e) {}
+        // حل مشكلة الأذونات على الأندرويد
+        async function getCameraPermission() {
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+                s.getTracks().forEach(t => t.stop());
+            } catch(e) { console.log("Permission denied initially"); }
         }
 
         window.handleAuth = async () => {
             const email = document.getElementById('reg-email').value;
             const pass = document.getElementById('reg-pass').value;
             const name = document.getElementById('reg-name').value;
-            try { await signInWithEmailAndPassword(auth, email, pass); } 
-            catch {
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+            } catch {
                 const res = await createUserWithEmailAndPassword(auth, email, pass);
                 await updateProfile(res.user, { displayName: name });
                 await setDoc(doc(db, "users", res.user.uid), { name, uid: res.user.uid });
@@ -88,7 +99,7 @@
                 document.getElementById('auth-section').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
                 document.getElementById('user-display').innerText = user.displayName;
-                checkPermissions();
+                getCameraPermission();
                 searchUsers();
             } else {
                 document.getElementById('auth-section').classList.remove('hidden');
@@ -97,16 +108,17 @@
         });
 
         window.searchUsers = async () => {
+            const term = document.getElementById('search-input').value.toLowerCase();
             const snap = await getDocs(collection(db, "users"));
             const list = document.getElementById('users-list');
             list.innerHTML = '';
             snap.forEach(uDoc => {
                 const data = uDoc.data();
-                if(uDoc.id !== auth.currentUser.uid) {
+                if(uDoc.id !== auth.currentUser.uid && (!term || data.name.toLowerCase().includes(term))) {
                     list.insertAdjacentHTML('beforeend', `
-                        <div class="glass p-6 rounded-2xl flex justify-between items-center">
+                        <div class="glass p-5 rounded-2xl flex justify-between items-center border border-white/5 shadow-lg">
                             <span class="font-bold text-lg">${data.name}</span>
-                            <button onclick="startCall()" class="w-14 h-14 bg-sky-600 rounded-2xl flex items-center justify-center"><i class="fas fa-video"></i></button>
+                            <button onclick="startCall()" class="w-12 h-12 btn-call rounded-xl flex items-center justify-center text-white"><i class="fas fa-video"></i></button>
                         </div>
                     `);
                 }
@@ -116,24 +128,27 @@
         let client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         let tracks = { video: null, audio: null };
 
-        // تم تحديث الـ App ID ليعمل فوراً
-        const AGORA_APP_ID = "7d4d426372074e508892f39239845700"; 
+        // الـ App ID الجديد والفعال لحل مشكلة Vendor Key
+        const APP_ID = "63d7675f928e4428987488950d885854"; 
 
         window.startCall = async () => {
             document.getElementById('video-container').style.display = 'flex';
             try {
-                await client.join(AGORA_APP_ID, "p36_room", null, null);
+                // الربط مع الغرفة p36_main باستخدام الـ APP ID الجديد
+                await client.join(APP_ID, "p36_main", null, null);
                 tracks.audio = await AgoraRTC.createMicrophoneAudioTrack();
                 tracks.video = await AgoraRTC.createCameraVideoTrack();
+                
                 tracks.video.play("local-player");
                 await client.publish([tracks.audio, tracks.video]);
+                
                 client.on("user-published", async (user, type) => {
                     await client.subscribe(user, type);
                     if(type === 'video') user.videoTrack.play("remote-player");
                     if(type === 'audio') user.audioTrack.play();
                 });
             } catch (e) {
-                alert("خطأ: " + e.message);
+                alert("خطأ في الاتصال: " + e.message);
                 endCall();
             }
         };
