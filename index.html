@@ -1,1 +1,166 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P36 PORTAL - v6.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.11.0.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+        body { font-family: 'Cairo', sans-serif; background: #0b1120; color: white; margin: 0; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
+        .input-p36 { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 14px; width: 100%; color: white; outline: none; transition: 0.3s; }
+        .input-p36:focus { border-color: #0ea5e9; }
+        #video-container { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; }
+        .user-card { transition: 0.3s; cursor: pointer; }
+        .user-card:hover { background: rgba(14, 165, 233, 0.1); }
+    </style>
+</head>
+<body>
 
+    <div id="auth-section" class="min-h-screen flex items-center justify-center p-6">
+        <div class="w-full max-w-md glass p-10 rounded-[2.5rem] shadow-2xl">
+            <h1 class="text-4xl font-black text-sky-500 mb-8 text-center italic">P36 <span class="text-white">ID</span></h1>
+            <div class="space-y-4">
+                <input type="text" id="reg-name" placeholder="الاسم المستعار (Nickname)" class="input-p36">
+                <input type="email" id="reg-email" placeholder="البريد الإلكتروني" class="input-p36">
+                <input type="password" id="reg-pass" placeholder="كلمة المرور" class="input-p36">
+                <button onclick="handleAuth()" class="w-full bg-sky-600 p-4 rounded-2xl font-black active:scale-95 transition-all shadow-lg shadow-sky-600/20">دخول / تسجيل</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-app" class="hidden min-h-screen flex flex-col">
+        <header class="p-6 glass flex justify-between items-center sticky top-0 z-50">
+            <div>
+                <h2 id="user-display" class="font-black text-sky-400 text-lg uppercase">...</h2>
+                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest italic">P36 Network Connected</p>
+            </div>
+            <button onclick="logout()" class="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 flex items-center justify-center active:scale-90"><i class="fas fa-power-off"></i></button>
+        </header>
+
+        <main class="p-6 flex-1 space-y-6">
+            <div class="relative">
+                <input type="text" id="search-input" oninput="searchUsers()" placeholder="ابحث عن صديق بالاسم..." class="input-p36 bg-slate-900/50 border-none pl-12">
+                <i class="fas fa-search absolute left-4 top-4 text-slate-500"></i>
+            </div>
+            
+            <div id="users-list" class="grid gap-3">
+                </div>
+        </main>
+    </div>
+
+    <div id="video-container">
+        <div id="remote-player" class="flex-1 bg-black"></div>
+        <div id="local-player" class="h-1/3 bg-slate-900 border-t border-white/10 relative">
+             <span class="absolute top-4 left-4 text-[10px] bg-sky-600/30 px-2 py-1 rounded">معاينة الكاميرا الخاصة بك</span>
+        </div>
+        <div class="p-10 flex justify-center">
+            <button onclick="endCall()" class="w-20 h-20 bg-red-600 rounded-full shadow-2xl flex items-center justify-center active:scale-75 transition-transform"><i class="fas fa-phone-slash text-2xl"></i></button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDocs, collection } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // إعدادات Firebase الخاصة بمشروعك
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2jHFMOLE1QXVhCFd0FXB_BKMp8W62cME",
+            authDomain: "abood-p36.firebaseapp.com",
+            projectId: "abood-p36",
+            storageBucket: "abood-p36.firebasestorage.app",
+            messagingSenderId: "780692902080",
+            appId: "1:780692902080:web:66d6437b8fd56dd1bd1d25"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // نظام الحسابات
+        window.handleAuth = async () => {
+            const email = document.getElementById('reg-email').value;
+            const pass = document.getElementById('reg-pass').value;
+            const name = document.getElementById('reg-name').value;
+            
+            if(!email || !pass) return alert("يرجى إدخال البيانات كاملة");
+
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+            } catch {
+                try {
+                    const res = await createUserWithEmailAndPassword(auth, email, pass);
+                    await updateProfile(res.user, { displayName: name });
+                    await setDoc(doc(db, "users", res.user.uid), { name, uid: res.user.uid, email });
+                } catch (e) { alert("خطأ في التسجيل: " + e.message); }
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if(user) {
+                document.getElementById('auth-section').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                document.getElementById('user-display').innerText = user.displayName || "USER";
+                searchUsers();
+            } else {
+                document.getElementById('auth-section').classList.remove('hidden');
+                document.getElementById('main-app').classList.add('hidden');
+            }
+        });
+
+        // نظام البحث عن المستخدمين
+        window.searchUsers = async () => {
+            const term = document.getElementById('search-input').value.toLowerCase();
+            const snap = await getDocs(collection(db, "users"));
+            const list = document.getElementById('users-list');
+            list.innerHTML = '';
+            
+            snap.forEach(userDoc => {
+                const data = userDoc.data();
+                if(userDoc.id !== auth.currentUser.uid && (!term || data.name.toLowerCase().includes(term))) {
+                    list.insertAdjacentHTML('beforeend', `
+                        <div class="glass p-5 rounded-2xl flex justify-between items-center user-card shadow-lg">
+                            <div>
+                                <h4 class="font-bold text-white">${data.name}</h4>
+                                <p class="text-[9px] text-sky-500 font-bold tracking-widest">ONLINE NOW</p>
+                            </div>
+                            <button onclick="startCall()" class="w-12 h-12 bg-sky-600/10 text-sky-500 rounded-xl flex items-center justify-center border border-sky-500/20"><i class="fas fa-video"></i></button>
+                        </div>
+                    `);
+                }
+            });
+        };
+
+        // نظام الاتصال (Agora RTC)
+        let client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        let tracks = [];
+
+        window.startCall = async () => {
+            document.getElementById('video-container').style.display = 'flex';
+            const APP_ID = "7d4d426372074e508892f39239845700"; 
+            await client.join(APP_ID, "p36_main", null, null);
+            tracks = await AgoraRTC.createMicrophoneAndCameraTracks();
+            tracks[1].play("local-player");
+            await client.publish(tracks);
+            client.on("user-published", async (user, type) => {
+                await client.subscribe(user, type);
+                if(type === 'video') user.videoTrack.play("remote-player");
+                if(type === 'audio') user.audioTrack.play();
+            });
+        };
+
+        window.endCall = async () => {
+            tracks.forEach(t => { t.stop(); t.close(); });
+            await client.leave();
+            document.getElementById('video-container').style.display = 'none';
+        };
+
+        window.logout = () => signOut(auth);
+    </script>
+</body>
+  </html>
+  
