@@ -2,31 +2,34 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P36 PORTAL - v6.1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>P36 PORTAL - v6.2 FINAL</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.11.0.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
-        body { font-family: 'Cairo', sans-serif; background: #0b1120; color: white; margin: 0; overflow-x: hidden; }
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
-        .input-p36 { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 14px; width: 100%; color: white; outline: none; }
+        body { font-family: 'Cairo', sans-serif; background: #0b1120; color: white; margin: 0; touch-action: manipulation; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.08); }
+        .input-p36 { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 16px; width: 100%; color: white; outline: none; transition: 0.3s; }
+        .input-p36:focus { border-color: #0ea5e9; box-shadow: 0 0 15px rgba(14, 165, 233, 0.2); }
         #video-container { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; }
-        .btn-call { background: linear-gradient(135deg, #0ea5e9, #0284c7); transition: 0.3s; }
-        .btn-call:active { scale: 0.9; }
+        .user-card { transition: 0.3s; background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.05); }
+        .pulse { animation: pulse-blue 2s infinite; }
+        @keyframes pulse-blue { 0% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(14, 165, 233, 0); } 100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); } }
     </style>
 </head>
 <body>
 
     <div id="auth-section" class="min-h-screen flex items-center justify-center p-6">
-        <div class="w-full max-w-md glass p-10 rounded-[2.5rem] shadow-2xl text-center">
-            <h1 class="text-4xl font-black text-sky-500 mb-8 italic">P36 <span class="text-white">ID</span></h1>
+        <div class="w-full max-w-md glass p-10 rounded-[3rem] shadow-2xl text-center border-t border-white/10">
+            <h1 class="text-5xl font-black text-sky-500 mb-2 italic tracking-tighter">P36</h1>
+            <p class="text-gray-400 mb-8 text-sm font-bold uppercase tracking-[0.3em]">Secure Portal</p>
             <div class="space-y-4 text-right">
-                <input type="text" id="reg-name" placeholder="الاسم المستعار" class="input-p36">
-                <input type="email" id="reg-email" placeholder="الإيميل" class="input-p36">
-                <input type="password" id="reg-pass" placeholder="كلمة السر" class="input-p36">
-                <button onclick="handleAuth()" class="w-full bg-sky-600 p-4 rounded-2xl font-black shadow-lg">دخول / تسجيل</button>
+                <input type="text" id="reg-name" placeholder="الاسم المستعار (Nickname)" class="input-p36">
+                <input type="email" id="reg-email" placeholder="البريد الإلكتروني" class="input-p36">
+                <input type="password" id="reg-pass" placeholder="كلمة المرور" class="input-p36">
+                <button onclick="handleAuth()" class="w-full bg-sky-600 p-5 rounded-2xl font-black text-lg shadow-xl shadow-sky-600/20 active:scale-95 transition-all">دخول آمن</button>
             </div>
         </div>
     </div>
@@ -34,25 +37,33 @@
     <div id="main-app" class="hidden min-h-screen flex flex-col">
         <header class="p-6 glass flex justify-between items-center sticky top-0 z-50">
             <div>
-                <h2 id="user-display" class="font-black text-sky-400">...</h2>
-                <p id="status-text" class="text-[9px] text-green-500 font-bold tracking-tighter italic">متصل بالشبكة</p>
+                <h2 id="user-display" class="font-black text-sky-400 text-xl tracking-tight italic">...</h2>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
+                    <span class="text-[10px] text-gray-400 font-bold uppercase italic">Network: Stable</span>
+                </div>
             </div>
-            <button onclick="logout()" class="text-red-500 p-2"><i class="fas fa-power-off"></i></button>
+            <button onclick="logout()" class="w-12 h-12 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/20 flex items-center justify-center active:scale-90"><i class="fas fa-power-off"></i></button>
         </header>
 
-        <main class="p-6 space-y-4">
+        <main class="p-6 flex-1 space-y-6">
             <div class="relative">
-                <input type="text" id="search-input" oninput="searchUsers()" placeholder="ابحث عن أصدقاء..." class="input-p36 bg-slate-900/50 pr-10">
+                <input type="text" id="search-input" oninput="searchUsers()" placeholder="ابحث عن الأعضاء النشطين..." class="input-p36 pl-12 bg-slate-900/80 border-none shadow-inner">
+                <i class="fas fa-search absolute left-4 top-5 text-slate-500"></i>
             </div>
-            <div id="users-list" class="grid gap-3"></div>
+            
+            <div id="users-list" class="grid gap-4">
+                </div>
         </main>
     </div>
 
     <div id="video-container">
-        <div id="remote-player" class="flex-1 bg-black"></div>
-        <div id="local-player" class="h-1/3 bg-slate-900 border-t border-white/10 relative"></div>
-        <div class="absolute bottom-10 left-0 right-0 flex justify-center">
-            <button onclick="endCall()" class="w-16 h-16 bg-red-600 rounded-full shadow-2xl flex items-center justify-center"><i class="fas fa-phone-slash text-xl"></i></button>
+        <div id="remote-player" class="flex-1 bg-gray-900"></div>
+        <div id="local-player" class="h-1/3 bg-slate-900 border-t border-sky-500/30 relative">
+             <div class="absolute top-4 right-4 bg-sky-600 px-3 py-1 rounded-full text-[10px] font-bold italic shadow-lg">معاينة الكاميرا</div>
+        </div>
+        <div class="p-12 flex justify-center bg-gradient-to-t from-black to-transparent">
+            <button onclick="endCall()" class="w-20 h-20 bg-red-600 rounded-full shadow-2xl flex items-center justify-center active:scale-75 transition-transform border-4 border-white/10"><i class="fas fa-phone-slash text-2xl text-white"></i></button>
         </div>
     </div>
 
@@ -74,14 +85,14 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // طلب الإذن فور التشغيل
-        async function requestPermissions() {
+        // حل مشكلة الصلاحيات للأندرويد
+        async function getPermissions() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                stream.getTracks().forEach(track => track.stop());
-                console.log("Permissions granted");
-            } catch (err) {
-                alert("يرجى السماح للكاميرا والميكروفون بالعمل من إعدادات المتصفح لتتمكن من الاتصال.");
+                stream.getTracks().forEach(t => t.stop());
+                console.log("Permissions OK");
+            } catch (e) {
+                alert("تنبيه: الكاميرا والميكروفون محظوران. يرجى الضغط على علامة القفل بجانب الرابط وتفعيل السماح.");
             }
         }
 
@@ -89,6 +100,7 @@
             const email = document.getElementById('reg-email').value;
             const pass = document.getElementById('reg-pass').value;
             const name = document.getElementById('reg-name').value;
+            if(!email || !pass) return alert("أكمل البيانات");
             try {
                 await signInWithEmailAndPassword(auth, email, pass);
             } catch {
@@ -102,8 +114,8 @@
             if(user) {
                 document.getElementById('auth-section').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
-                document.getElementById('user-display').innerText = user.displayName;
-                requestPermissions(); // اطلب الإذن بعد تسجيل الدخول
+                document.getElementById('user-display').innerText = user.displayName || "USER-P36";
+                getPermissions(); // اطلب الصلاحية فور الدخول
                 searchUsers();
             } else {
                 document.getElementById('auth-section').classList.remove('hidden');
@@ -120,9 +132,12 @@
                 const data = uDoc.data();
                 if(uDoc.id !== auth.currentUser.uid && (!term || data.name.toLowerCase().includes(term))) {
                     list.insertAdjacentHTML('beforeend', `
-                        <div class="glass p-5 rounded-2xl flex justify-between items-center shadow-lg">
-                            <span class="font-bold text-lg">${data.name}</span>
-                            <button onclick="startCall()" class="w-12 h-12 btn-call rounded-xl flex items-center justify-center text-white shadow-md"><i class="fas fa-video"></i></button>
+                        <div class="user-card p-6 rounded-[2rem] flex justify-between items-center shadow-lg">
+                            <div>
+                                <h4 class="font-black text-white text-lg">${data.name}</h4>
+                                <p class="text-[9px] text-green-500 font-black italic tracking-widest">ENCRYPTED LINE</p>
+                            </div>
+                            <button onclick="startCall()" class="w-14 h-14 bg-sky-600/20 text-sky-400 rounded-2xl flex items-center justify-center border border-sky-400/20 pulse"><i class="fas fa-video text-xl"></i></button>
                         </div>
                     `);
                 }
@@ -130,33 +145,30 @@
         };
 
         let client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        let localTracks = { videoTrack: null, audioTrack: null };
+        let tracks = { video: null, audio: null };
 
         window.startCall = async () => {
             document.getElementById('video-container').style.display = 'flex';
             try {
                 await client.join("7d4d426372074e508892f39239845700", "p36_main", null, null);
-                localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-                localTracks.videoTrack = await AgoraRTC.createCameraVideoTrack();
-                
-                localTracks.videoTrack.play("local-player");
-                await client.publish([localTracks.audioTrack, localTracks.videoTrack]);
-                
+                tracks.audio = await AgoraRTC.createMicrophoneAudioTrack();
+                tracks.video = await AgoraRTC.createCameraVideoTrack();
+                tracks.video.play("local-player");
+                await client.publish([tracks.audio, tracks.video]);
                 client.on("user-published", async (user, type) => {
                     await client.subscribe(user, type);
                     if(type === 'video') user.videoTrack.play("remote-player");
                     if(type === 'audio') user.audioTrack.play();
                 });
             } catch (e) {
-                console.error(e);
-                alert("تأكد من إعطاء صلاحية الكاميرا!");
+                alert("خطأ في تشغيل الكاميرا: " + e.message);
                 endCall();
             }
         };
 
         window.endCall = async () => {
-            if(localTracks.videoTrack) { localTracks.videoTrack.stop(); localTracks.videoTrack.close(); }
-            if(localTracks.audioTrack) { localTracks.audioTrack.stop(); localTracks.audioTrack.close(); }
+            if(tracks.video) { tracks.video.stop(); tracks.video.close(); }
+            if(tracks.audio) { tracks.audio.stop(); tracks.audio.close(); }
             await client.leave();
             document.getElementById('video-container').style.display = 'none';
         };
